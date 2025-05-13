@@ -1,12 +1,10 @@
 import { CandleData, CandleAnalysisResult, Symbol, TimeInterval } from '../types/CandleTypes';
 
 export const availableSymbols: Symbol[] = [
-  { id: 'AAPL', name: 'Apple Inc.', basePrice: 175, volatility: 2 },
-  { id: 'GOOGL', name: 'Alphabet Inc.', basePrice: 140, volatility: 2.5 },
-  { id: 'TSLA', name: 'Tesla, Inc.', basePrice: 250, volatility: 4 },
-  { id: 'SPY', name: 'S&P 500 ETF', basePrice: 450, volatility: 1.5 },
-  { id: 'QQQ', name: 'Nasdaq 100 ETF', basePrice: 380, volatility: 1.8 },
-  { id: 'DIA', name: 'Dow Jones ETF', basePrice: 350, volatility: 1.3 },
+  { id: 'I:SPX', name: 'S&P 500' },
+  { id: 'I:NDX', name: 'Nasdaq 100' },
+  { id: 'I:RUT', name: 'Russell 2000' },
+  { id: 'X:BTC-USD', name: 'Bitcoin / U.S.Dollar' },
 ];
 
 export const timeIntervals: TimeInterval[] = [
@@ -19,67 +17,87 @@ export const timeIntervals: TimeInterval[] = [
   { id: '1d', label: '1 Day', minutes: 1440 },
 ];
 
-export const generateMockData = (symbol: Symbol, interval: TimeInterval): CandleData[] => {
-  const data: CandleData[] = [];
-  const now = new Date();
-  let basePrice = symbol.basePrice;
-  
-  // Calculate number of candles based on interval
-  const totalMinutes = 30 * 24 * 60; // 30 days in minutes
-  const numCandles = Math.floor(totalMinutes / interval.minutes);
-  
-  for (let i = numCandles; i >= 0; i--) {
-    const date = new Date(now.getTime() - (i * interval.minutes * 60 * 1000));
-    
-    // Adjust volatility based on time interval
-    const intervalVolatilityFactor = Math.sqrt(interval.minutes / 1440); // Scale volatility based on square root of time
-    const adjustedVolatility = symbol.volatility * intervalVolatilityFactor;
-    
-    const volatility = Math.random() * adjustedVolatility + (adjustedVolatility / 2);
-    const changePercent = (Math.random() - 0.5) * volatility;
-    const change = basePrice * changePercent / 100;
-    
-    const open = basePrice;
-    const close = Number((basePrice + change).toFixed(2));
-    
-    const highFromOpenClose = Math.max(open, close);
-    const lowFromOpenClose = Math.min(open, close);
-    const high = Number((highFromOpenClose + Math.random() * (adjustedVolatility * 2)).toFixed(2));
-    const low = Number((lowFromOpenClose - Math.random() * (adjustedVolatility * 2)).toFixed(2));
-    
-    data.push({ date, open, high, low, close });
-    
-    basePrice = close;
+interface PolygonResponse {
+  status: string;
+  results: Array<{
+    t: number; // timestamp in milliseconds
+    o: number; // open
+    h: number; // high
+    l: number; // low
+    c: number; // close
+    v?: number; // volume
+  }>;
+}
+
+export const getPolygonData = async (
+  symbol: Symbol,
+  interval: TimeInterval,
+  date: string
+): Promise<CandleData[]> => {
+  const apiKey = import.meta.env.VITE_POLYGON_API_KEY;
+  if (!apiKey) {
+    throw new Error('Polygon API key is not configured.');
   }
-  
-  return data;
+  const apiUrl = `https://api.polygon.io/v2/aggs/ticker/${symbol.id}/range/${interval.minutes}/minute/${date}/${date}?sort=desc&limit=5000&apiKey=${apiKey}`;
+
+  try {
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+    }
+
+    const result: PolygonResponse = await response.json();
+    if (result.status !== 'OK' || !Array.isArray(result.results)) {
+      throw new Error('Invalid Polygon API response: ' + JSON.stringify(result));
+    }
+
+    if (result.results.length === 0) {
+      return [];
+    }
+
+    return result.results
+      .filter((item) => item.t && item.o && item.h && item.l && item.c)
+      .map((item) => ({
+        date: new Date(item.t),
+        open: item.o,
+        high: item.h,
+        low: item.l,
+        close: item.c,
+        volume: item.v,
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  } catch (error) {
+    console.error('Error fetching Polygon data:', error);
+    throw error;
+  }
 };
 
 export const analyzeCandleData = (data: CandleData[]): CandleAnalysisResult => {
   if (data.length === 0) {
     throw new Error('Cannot analyze empty data set');
   }
-  
+
   const latestCandle = data[data.length - 1];
   const isPositive = latestCandle.close > latestCandle.open;
-  
+
   let streakCount = 1;
   const streakType = isPositive ? 'positive' : 'negative';
-  
+
   for (let i = data.length - 2; i >= 0; i--) {
     const candle = data[i];
     const candleIsPositive = candle.close > candle.open;
-    
+
     if (candleIsPositive === isPositive) {
       streakCount++;
     } else {
       break;
     }
   }
-  
+
   const change = Number((latestCandle.close - latestCandle.open).toFixed(2));
   const percentChange = Number(((change / latestCandle.open) * 100).toFixed(2));
-  
+
   return {
     latestCandle: {
       isPositive,

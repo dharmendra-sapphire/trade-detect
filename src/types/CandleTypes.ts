@@ -4,6 +4,7 @@ export interface CandleData {
   high: number;
   low: number;
   close: number;
+  volume?: number; // Optional for future expansion
 }
 
 export interface CandleAnalysisResult {
@@ -24,8 +25,6 @@ export interface CandleAnalysisResult {
 export interface Symbol {
   id: string;
   name: string;
-  basePrice: number;
-  volatility: number;
 }
 
 export interface TimeInterval {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CandleAnalysisResult } from '../types/CandleTypes';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -9,24 +9,25 @@ interface CandleAnalysisProps {
 const CandleAnalysis: React.FC<CandleAnalysisProps> = ({ analysis }) => {
   const { latestCandle, streak } = analysis;
   const { isPositive, date, open, close, change, percentChange } = latestCandle;
-  
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-  
+
+  const formattedDate = useMemo(
+    () =>
+      date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+    [date]
+  );
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 w-full mx-auto max-w-4xl">
       <h2 className="text-xl font-semibold mb-4 text-gray-800">Candle Analysis</h2>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-slate-50 rounded-lg p-5 transition-all duration-300 hover:shadow-md">
           <h3 className="text-lg font-medium mb-3 text-gray-700">Latest Candle</h3>
           <div className="flex items-center mb-3">
-            <div 
+            <div
               className={`flex items-center justify-center w-10 h-10 rounded-full ${
                 isPositive ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
               } mr-3`}
@@ -34,13 +35,12 @@ const CandleAnalysis: React.FC<CandleAnalysisProps> = ({ analysis }) => {
               {isPositive ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
             </div>
             <div>
-              <p className="text-gray-600 text-sm">{formatDate(date)}</p>
+              <p className="text-gray-600 text-sm">{formattedDate}</p>
               <p className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                 {isPositive ? 'Bullish' : 'Bearish'}
               </p>
             </div>
           </div>
-          
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-white p-2 rounded border border-slate-200">
               <p className="text-xs text-gray-500">Open</p>
@@ -64,11 +64,10 @@ const CandleAnalysis: React.FC<CandleAnalysisProps> = ({ analysis }) => {
             </div>
           </div>
         </div>
-        
         <div className="bg-slate-50 rounded-lg p-5 transition-all duration-300 hover:shadow-md">
           <h3 className="text-lg font-medium mb-3 text-gray-700">Current Streak</h3>
           <div className="flex flex-col items-center justify-center h-[calc(100%-2rem)]">
-            <div 
+            <div
               className={`flex items-center justify-center w-16 h-16 rounded-full mb-3 ${
                 streak.type === 'positive' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
               }`}
@@ -76,9 +75,11 @@ const CandleAnalysis: React.FC<CandleAnalysisProps> = ({ analysis }) => {
               {streak.type === 'positive' ? <TrendingUp size={28} /> : <TrendingDown size={28} />}
             </div>
             <p className="text-gray-700">{streak.count} consecutive</p>
-            <p className={`text-xl font-bold ${
-              streak.type === 'positive' ? 'text-green-600' : 'text-red-600'
-            }`}>
+            <p
+              className={`text-xl font-bold ${
+                streak.type === 'positive' ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
               {streak.type === 'positive' ? 'Bullish' : 'Bearish'} candles
             </p>
           </div>
@@ -88,4 +89,4 @@ const CandleAnalysis: React.FC<CandleAnalysisProps> = ({ analysis }) => {
   );
 };
 
-export default CandleAnalysis;
+export default React.memo(CandleAnalysis);
